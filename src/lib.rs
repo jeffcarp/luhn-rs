@@ -1,3 +1,14 @@
+/*! Validates strings using the Luhn algorithm.
+
+It's not a great checksum, but it's used in a bunch of places (credit
+card numbers, ISIN codes, etc.).  More information is available on
+[wikipedia](https://en.wikipedia.org/wiki/Luhn_algorithm).
+*/
+
+/// Validates the given string using the Luhn algorithm.
+///
+/// Typically such strings end in a check digit which is chosen in order
+/// to make the whole string validate.
 pub fn luhn_valid(pan: &str) -> bool {
     let mut numbers = string_to_ints(pan);
     numbers.reverse();
