@@ -5,3 +5,5 @@ description = "A Luhn validation library"
 authors = ["Jeff Carpenter <gcarpenterv@gmail.com>"]
 license = "MIT"
 edition = "2018"
+repository = "https://github.com/jeffcarp/luhn-rs"
+readme = "README.md"
