@@ -5,6 +5,8 @@ card numbers, ISIN codes, etc.).  More information is available on
 [wikipedia](https://en.wikipedia.org/wiki/Luhn_algorithm).
 */
 
+use digits_iterator::DigitsExtension;
+
 /// Validates the given string using the Luhn algorithm.
 ///
 /// Typically such strings end in a check digit which is chosen in order
@@ -38,7 +40,66 @@ fn string_to_ints(string: &str) -> Vec<u32> {
     }
     numbers
 }
- 
+
+/// Computes the Luhn check digit for the given string.
+///
+/// The string formed by appending the check digit to the original string
+/// is guaranteed to be valid.  Input must be uppercase alphanumeric
+/// ASCII; panics otherwise.
+pub fn checksum(input: &[u8]) -> u8 {
+    // This implementation is based on the description found
+    // [here](https://en.wikipedia.org/wiki/International_Securities_Identification_Number).
+
+    // Convert a char into an index into the alphabet [0-9,A-Z].
+    fn encode_char(c: u8) -> u8 {
+        match c {
+            b'0'..=b'9' => c - b'0',
+            b'A'..=b'Z' => c - b'A' + 10,
+            _ => panic!("Not alphanumeric: {}", c),
+        }
+    }
+
+    // Encode the chars in the input and concatenate them digit-wise.
+    // Eg. "3C" => [3, 1, 2]
+    // FIXME: This allocates.  Is it necessary?
+    // One char may become two digits => max length is input.len() * 2.
+    let mut ds = Vec::<u8>::with_capacity(input.len() * 2);
+    ds.extend(
+        input
+            .iter()
+            .copied()
+            .map(encode_char)
+            .flat_map(DigitsExtension::digits),
+    );
+
+    // The even-indexed digits, as numbered from the back, are added digit-wise.
+    let checksum_even = ds
+        .iter()
+        .rev()
+        .skip(1)
+        .step_by(2)
+        .copied()
+        .flat_map(DigitsExtension::digits)
+        .sum::<u8>();
+
+    // The odd-indexed digits, as numbered from the back, are doubled first.
+    let checksum_odd = ds
+        .iter()
+        .rev()
+        .step_by(2)
+        .map(|&x| x * 2)
+        .flat_map(DigitsExtension::digits)
+        .sum::<u8>();
+
+    let checksum = checksum_even + checksum_odd;
+
+    // (checksum + luhn digit) % 10 must be zero.  Working backwards:
+    let digit = (10 - (checksum % 10)) % 10;
+
+    // convert to ASCII
+    digit + 48
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

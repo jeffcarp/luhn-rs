@@ -7,3 +7,6 @@ license = "MIT"
 edition = "2018"
 repository = "https://github.com/jeffcarp/luhn-rs"
 readme = "README.md"
+
+[dependencies]
+digits_iterator = "0.1"
