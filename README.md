@@ -14,5 +14,5 @@ luhn = "0.1.0"
 Use the validator!
 
 ```rust
-luhn::luhn_valid("4111111111111111"); // true
+luhn::valid("4111111111111111"); // true
 ```
