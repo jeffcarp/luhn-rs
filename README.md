@@ -11,12 +11,6 @@ Add `luhn` under `[dependencies]` in your `Cargo.toml`:
 luhn = "0.1.0"
 ```
 
-Require the library:
-
-```rust
-extern crate luhn;
-```
-
 Use the validator!
 
 ```rust

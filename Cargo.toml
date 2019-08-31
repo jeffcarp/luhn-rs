@@ -4,3 +4,4 @@ version = "0.1.0"
 description = "A Luhn validation library"
 authors = ["Jeff Carpenter <gcarpenterv@gmail.com>"]
 license = "MIT"
+edition = "2018"
