@@ -123,4 +123,49 @@ mod tests {
     fn rejects_234() {
         assert!(!valid("234"));
     }
+
+    fn validate_isin(xs: [u8; 12]) -> bool {
+        let digit = checksum(&xs[0..11]);
+        digit == xs[11]
+    }
+
+    #[test]
+    fn validate_some_good_isins() {
+        // I got these from <http://www.isin.org>.
+        assert!(validate_isin(*b"US5949181045")); // Microsoft
+        assert!(validate_isin(*b"US38259P5089")); // Google
+        assert!(validate_isin(*b"US0378331005")); // Apple
+        assert!(validate_isin(*b"BMG491BT1088")); // Invesco
+        assert!(validate_isin(*b"IE00B4BNMY34")); // Accenture
+        assert!(validate_isin(*b"US0231351067")); // Amazon
+        assert!(validate_isin(*b"US64110L1061")); // Netflix
+        assert!(validate_isin(*b"US30303M1027")); // Facebook
+        assert!(validate_isin(*b"CH0031240127")); // BMW Australia
+        assert!(validate_isin(*b"CA9861913023")); // Yorbeau Res
+    }
+
+    #[test]
+    fn fail_some_bad_isins() {
+        assert!(!validate_isin(*b"US5949181040")); // Microsoft (checksum zeroed)
+        assert!(!validate_isin(*b"US38259P5080")); // Google (checksum zeroed)
+        assert!(!validate_isin(*b"US0378331000")); // Apple (checksum zeroed)
+        assert!(!validate_isin(*b"BMG491BT1080")); // Invesco (checksum zeroed)
+        assert!(!validate_isin(*b"IE00B4BNMY30")); // Accenture (checksum zeroed)
+        assert!(!validate_isin(*b"US0231351060")); // Amazon (checksum zeroed)
+        assert!(!validate_isin(*b"US64110L1060")); // Netflix (checksum zeroed)
+        assert!(!validate_isin(*b"US30303M1020")); // Facebook (checksum zeroed)
+        assert!(!validate_isin(*b"CH0031240120")); // BMW Australia (checksum zeroed)
+        assert!(!validate_isin(*b"CA9861913020")); // Yorbeau Res (checksum zeroed)
+
+        assert!(!validate_isin(*b"SU5941981045")); // Microsoft (two chars transposed)
+        assert!(!validate_isin(*b"US3825P95089")); // Google (two chars transposed)
+        assert!(!validate_isin(*b"US0378313005")); // Apple (two chars transposed)
+        assert!(!validate_isin(*b"BMG491BT0188")); // Invesco (two chars transposed)
+        assert!(!validate_isin(*b"IE00B4BNM3Y4")); // Accenture (two chars transposed)
+        assert!(!validate_isin(*b"US2031351067")); // Amazon (two chars transposed)
+        assert!(!validate_isin(*b"US61410L1061")); // Netflix (two chars transposed)
+        assert!(!validate_isin(*b"US30033M1027")); // Facebook (two chars transposed)
+        assert!(!validate_isin(*b"CH0032140127")); // BMW Australia (two chars transposed)
+        assert!(!validate_isin(*b"CA9861193023")); // Yorbeau Res (two chars transposed)
+    }
 }
