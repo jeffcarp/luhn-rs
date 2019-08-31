@@ -1,4 +1,4 @@
-/*! Validates strings using the Luhn algorithm.
+/*! Validates strings and computes check digits using the Luhn algorithm.
 
 It's not a great checksum, but it's used in a bunch of places (credit
 card numbers, ISIN codes, etc.).  More information is available on
