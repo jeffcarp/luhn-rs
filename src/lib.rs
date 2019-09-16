@@ -1,4 +1,15 @@
-pub fn luhn_valid(pan: &str) -> bool {
+/*! Validates strings using the Luhn algorithm.
+
+It's not a great checksum, but it's used in a bunch of places (credit
+card numbers, ISIN codes, etc.).  More information is available on
+[wikipedia](https://en.wikipedia.org/wiki/Luhn_algorithm).
+*/
+
+/// Validates the given string using the Luhn algorithm.
+///
+/// Typically such strings end in a check digit which is chosen in order
+/// to make the whole string validate.
+pub fn valid(pan: &str) -> bool {
     let mut numbers = string_to_ints(pan);
     numbers.reverse();
     let mut is_odd: bool = true;
@@ -30,25 +41,25 @@ fn string_to_ints(string: &str) -> Vec<u32> {
  
 #[cfg(test)]
 mod tests {
-    use super::luhn_valid;
+    use super::*;
 
     #[test]
     fn accepts_4111111111111111() {
-        assert!(luhn_valid("4111111111111111"));
+        assert!(valid("4111111111111111"));
     }
 
     #[test]
     fn accepts_49927398716() {
-        assert!(luhn_valid("49927398716"));
+        assert!(valid("49927398716"));
     }
 
     #[test]
     fn rejects_4111111111111112() {
-        assert!(!luhn_valid("4111111111111112"));
+        assert!(!valid("4111111111111112"));
     }
 
     #[test]
     fn rejects_234() {
-        assert!(!luhn_valid("234"));
+        assert!(!valid("234"));
     }
 }
