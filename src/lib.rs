@@ -168,4 +168,16 @@ mod tests {
         assert!(!validate_isin(*b"CH0032140127")); // BMW Australia (two chars transposed)
         assert!(!validate_isin(*b"CA9861193023")); // Yorbeau Res (two chars transposed)
     }
+
+    #[test]
+    fn readme() {
+        // A string which doesn't validate
+        let mut s = "11111111".to_string();
+        assert!(!valid(&s));
+
+        // Let's fix that
+        s.push(checksum(s.as_bytes()) as char);
+        assert_eq!(s, "111111118");
+        assert!(valid(&s));
+    }
 }

@@ -16,3 +16,16 @@ Use the validator!
 ```rust
 luhn::valid("4111111111111111"); // true
 ```
+
+Append check digits to your strings and make them Luhn-valid!
+
+```rust
+// A string which doesn't validate
+let mut s = "11111111".to_string();
+assert!(!valid(&s));
+
+// Let's fix that
+s.push(luhn::checksum(s.as_bytes()) as char);
+assert_eq!(s, "111111118");
+assert!(valid(&s));
+```
