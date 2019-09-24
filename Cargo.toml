@@ -2,7 +2,10 @@
 name = "luhn"
 version = "1.0.0"
 description = "A Luhn validation library"
-authors = ["Jeff Carpenter <gcarpenterv@gmail.com>"]
+authors = [
+  "Jeff Carpenter <gcarpenterv@gmail.com>",
+  "Alex Sayers <alex@asayers.com>",
+]
 license = "MIT"
 edition = "2018"
 repository = "https://github.com/jeffcarp/luhn-rs"
