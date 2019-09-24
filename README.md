@@ -8,7 +8,7 @@ Add `luhn` under `[dependencies]` in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-luhn = "0.1.0"
+luhn = "1.0.0"
 ```
 
 Use the validator!
