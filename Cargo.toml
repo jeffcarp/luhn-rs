@@ -1,6 +1,6 @@
 [package]
 name = "luhn"
-version = "1.0.0"
+version = "1.0.1"
 description = "A Luhn validation library"
 authors = [
   "Jeff Carpenter <gcarpenterv@gmail.com>",

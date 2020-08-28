@@ -1,3 +1,7 @@
+# 1.0.1
+
+- Bump minor version to sync README.md with crates.io.
+
 # 1.0.0
 
 ## Breaking changes
