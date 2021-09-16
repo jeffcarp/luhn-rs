@@ -1,103 +1,145 @@
-/*! Validates strings and computes check digits using the Luhn algorithm.
-
-It's not a great checksum, but it's used in a bunch of places (credit
-card numbers, ISIN codes, etc.).  More information is available on
-[wikipedia](https://en.wikipedia.org/wiki/Luhn_algorithm).
-*/
-
-use digits_iterator::DigitsExtension;
+#![doc = include_str!("../README.md")]
 
 /// Validates the given string using the Luhn algorithm.
 ///
 /// Typically such strings end in a check digit which is chosen in order
 /// to make the whole string validate.
 pub fn valid(pan: &str) -> bool {
-    let mut numbers = string_to_ints(pan);
-    numbers.reverse();
-    let mut is_odd: bool = true;
-    let mut odd_sum: u32 = 0;
-    let mut even_sum: u32 = 0;
-    for digit in numbers {
-        if is_odd {
-            odd_sum += digit;
-        } else {
-            even_sum += digit / 5 + (2 * digit) % 10;
-        }
-        is_odd = !is_odd
-    }
-
-    (odd_sum + even_sum) % 10 == 0
-}
-
-fn string_to_ints(string: &str) -> Vec<u32> {
-    let mut numbers = vec![];
-    for c in string.chars() {
-        let value = c.to_string().parse::<u32>();
-        match value {
-            Ok(v) => numbers.push(v),
-            Err(e) => println!("error parsing number: {:?}", e),
-        }
-    }
-    numbers
+    validate_slice(pan.as_bytes())
 }
 
 /// Computes the Luhn check digit for the given string.
 ///
 /// The string formed by appending the check digit to the original string
 /// is guaranteed to be valid.  Input must be uppercase alphanumeric
-/// ASCII; panics otherwise.
+/// ASCII; panics otherwise. Use [calc_checksum] if panics are not acceptable.
 pub fn checksum(input: &[u8]) -> u8 {
-    // This implementation is based on the description found
-    // [here](https://en.wikipedia.org/wiki/International_Securities_Identification_Number).
+    calc_checksum(input).expect("Non alphanum ASCII") as u8
+}
 
-    // Convert a char into an index into the alphabet [0-9,A-Z].
-    fn encode_char(c: u8) -> u8 {
-        match c {
-            b'0'..=b'9' => c - b'0',
-            b'A'..=b'Z' => c - b'A' + 10,
-            _ => panic!("Not alphanumeric: {}", c),
+/// Iterate over decimal digits of base 10 or base 36 number
+struct DigitsIterator<I>(Option<u8>, I);
+impl<I> DigitsIterator<I> {
+    pub fn new(vals: I) -> Self where {
+        Self(None, vals)
+    }
+}
+impl<I> Iterator for DigitsIterator<I>
+where
+    I: Iterator<Item = u8>,
+{
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(n) = self.0.take() {
+            return Some(n);
+        }
+        let d = self.1.next()?;
+        if d < 10 {
+            Some(d)
+        } else {
+            self.0 = Some(d % 10);
+            Some(d / 10)
         }
     }
+}
 
-    // Encode the chars in the input and concatenate them digit-wise.
-    // Eg. "3C" => [3, 1, 2]
-    // FIXME: This allocates.  Is it necessary?
-    // One char may become two digits => max length is input.len() * 2.
-    let mut ds = Vec::<u8>::with_capacity(input.len() * 2);
-    ds.extend(
-        input
-            .iter()
-            .copied()
-            .map(encode_char)
-            .flat_map(DigitsExtension::digits),
-    );
+#[derive(Default)]
+struct Dig {
+    sum: usize,
+    five_or_higher: usize,
+}
 
-    // The even-indexed digits, as numbered from the back, are added digit-wise.
-    let checksum_even = ds
-        .iter()
-        .rev()
-        .skip(1)
-        .step_by(2)
-        .copied()
-        .flat_map(DigitsExtension::digits)
-        .sum::<u8>();
+fn luhn_fold(raw: &[u8]) -> Option<(Dig, Dig)> {
+    let mut invalid = false;
+    let base36 = raw.iter().map(|c| {
+        if (b'0'..=b'9').contains(c) {
+            *c - b'0'
+        } else if (b'A'..=b'Z').contains(c) {
+            *c - b'A' + 10
+        } else {
+            invalid = true;
+            0
+        }
+    });
 
-    // The odd-indexed digits, as numbered from the back, are doubled first.
-    let checksum_odd = ds
-        .iter()
-        .rev()
-        .step_by(2)
-        .map(|&x| x * 2)
-        .flat_map(DigitsExtension::digits)
-        .sum::<u8>();
+    // Luhn algorithm calls for a sum of digits in odd and even places starting
+    // from the end of the stream with additional transmogrification applied to
+    // digits on even (if calculating missing check digit) or odd (if checking the
+    // check digit) places starting from the right. Since we don't know in advance
+    // which digits will be on odd and which - on even places we collect them
+    // into two separate sums also collecting a bit of extra information that
+    // would allow us to perform transmogrification when needed once we know
+    // which group of digits needs to be changed
+    let mut sum = (Dig::default(), Dig::default());
+    for d in DigitsIterator::new(base36) {
+        if d >= 5 {
+            sum.0.five_or_higher += 1;
+        }
+        sum.0.sum += usize::from(d);
+        sum = (sum.1, sum.0)
+    }
+    if invalid {
+        return None;
+    }
+    Some(sum)
+}
 
-    let checksum = checksum_even + checksum_odd;
+/// Validate a Luhn checksum of an arbitrary slice
+///
+/// Takes a byte slice with Luhn check digit _present_ and checks if it is valid.
+/// Invalid ISINs (non alphadecimal and non ASCII) are invalid for obvious reasons.
+///
+/// ```rust
+/// # use luhn::*;
+/// // A valid ISIN
+/// let microsoft = b"US5949181045";
+/// assert!(validate_slice(microsoft));
+///
+/// // Not a valid ISIN
+/// let banana = b"banana";
+/// assert!(!validate_slice(banana));
+///
+/// // Even less valid ISIN
+/// let noms = "口水鸡";
+/// assert!(!validate_slice(noms.as_bytes()));
+/// use std::io;
+/// let mut input = String::new();
+/// io::stdin().read_line(&mut input)?;
+/// # Ok::<(), io::Error>(())
+/// ```
+pub fn validate_slice(raw: &[u8]) -> bool {
+    if let Some(sum) = luhn_fold(raw) {
+        (sum.0.sum * 2 - sum.0.five_or_higher * 9 + sum.1.sum) % 10 == 0
+    } else {
+        false
+    }
+}
 
-    // (checksum + luhn digit) % 10 must be zero.  Working backwards:
+/// Non explody version of [checksum].
+///
+/// Takes a byte slice with Luhn check digit _absent_ and calculates it if possible.
+/// For invalid inputs no digits will be calculated
+/// ```rust
+/// # use luhn::*;
+/// // A valid ISIN
+/// let microsoft = b"US5949181045";
+/// assert_eq!(calc_checksum(&microsoft[..11]), Some('5'));
+///
+/// // Not a valid ISIN
+/// let banana = b"banana";
+/// assert_eq!(calc_checksum(banana), None);
+///
+/// // Even less valid ISIN
+/// let noms = "口水鸡";
+/// assert_eq!(calc_checksum(&noms.as_bytes()), None);
+/// ```
+pub fn calc_checksum(raw: &[u8]) -> Option<char> {
+    let sum = luhn_fold(raw)?;
+    let sum = (sum.1, sum.0);
+    let checksum = sum.0.sum * 2 - sum.0.five_or_higher * 9 + sum.1.sum;
     let digit = (10 - (checksum % 10)) % 10;
-
-    // convert to ASCII
-    digit + 48
+    Some((digit as u8 + b'0') as char)
 }
 
 #[cfg(test)]
@@ -124,60 +166,69 @@ mod tests {
         assert!(!valid("234"));
     }
 
-    fn validate_isin(xs: [u8; 12]) -> bool {
-        let digit = checksum(&xs[0..11]);
-        digit == xs[11]
+    #[track_caller]
+    fn valid_isin(xs: &[u8]) {
+        let digit = checksum(&xs[..11]);
+        assert_eq!(digit, xs[11]);
+        assert!(validate_slice(&xs));
+    }
+
+    #[track_caller]
+    fn bad_isin(xs: &[u8]) {
+        let digit = checksum(&xs[..11]);
+        assert!(!validate_slice(&xs));
+        assert!(digit != xs[11]);
     }
 
     #[test]
     fn validate_some_good_isins() {
         // I got these from <http://www.isin.org>.
-        assert!(validate_isin(*b"US5949181045")); // Microsoft
-        assert!(validate_isin(*b"US38259P5089")); // Google
-        assert!(validate_isin(*b"US0378331005")); // Apple
-        assert!(validate_isin(*b"BMG491BT1088")); // Invesco
-        assert!(validate_isin(*b"IE00B4BNMY34")); // Accenture
-        assert!(validate_isin(*b"US0231351067")); // Amazon
-        assert!(validate_isin(*b"US64110L1061")); // Netflix
-        assert!(validate_isin(*b"US30303M1027")); // Facebook
-        assert!(validate_isin(*b"CH0031240127")); // BMW Australia
-        assert!(validate_isin(*b"CA9861913023")); // Yorbeau Res
+        valid_isin(b"US5949181045"); // Microsoft
+        valid_isin(b"US38259P5089"); // Google
+        valid_isin(b"US0378331005"); // Apple
+        valid_isin(b"BMG491BT1088"); // Invesco
+        valid_isin(b"IE00B4BNMY34"); // Accenture
+        valid_isin(b"US0231351067"); // Amazon
+        valid_isin(b"US64110L1061"); // Netflix
+        valid_isin(b"US30303M1027"); // Facebook
+        valid_isin(b"CH0031240127"); // BMW Australia
+        valid_isin(b"CA9861913023"); // Yorbeau Res
+
+        // a set of valid isins with all possible check digits
+        valid_isin(b"KR4101R60000");
+        valid_isin(b"KR4201QB2551");
+        valid_isin(b"KR4201RC3102");
+        valid_isin(b"KR4201Q92623");
+        valid_isin(b"KR4205QB2904");
+        valid_isin(b"KR4301R12825");
+        valid_isin(b"KR4301QC2906");
+        valid_isin(b"KR4205Q92327");
+        valid_isin(b"KR4301QB3228");
+        valid_isin(b"KR4301Q93579");
     }
 
     #[test]
     fn fail_some_bad_isins() {
-        assert!(!validate_isin(*b"US5949181040")); // Microsoft (checksum zeroed)
-        assert!(!validate_isin(*b"US38259P5080")); // Google (checksum zeroed)
-        assert!(!validate_isin(*b"US0378331000")); // Apple (checksum zeroed)
-        assert!(!validate_isin(*b"BMG491BT1080")); // Invesco (checksum zeroed)
-        assert!(!validate_isin(*b"IE00B4BNMY30")); // Accenture (checksum zeroed)
-        assert!(!validate_isin(*b"US0231351060")); // Amazon (checksum zeroed)
-        assert!(!validate_isin(*b"US64110L1060")); // Netflix (checksum zeroed)
-        assert!(!validate_isin(*b"US30303M1020")); // Facebook (checksum zeroed)
-        assert!(!validate_isin(*b"CH0031240120")); // BMW Australia (checksum zeroed)
-        assert!(!validate_isin(*b"CA9861913020")); // Yorbeau Res (checksum zeroed)
+        bad_isin(b"US5949181040"); // Microsoft (checksum zeroed)
+        bad_isin(b"US38259P5080"); // Google (checksum zeroed)
+        bad_isin(b"US0378331000"); // Apple (checksum zeroed)
+        bad_isin(b"BMG491BT1080"); // Invesco (checksum zeroed)
+        bad_isin(b"IE00B4BNMY30"); // Accenture (checksum zeroed)
+        bad_isin(b"US0231351060"); // Amazon (checksum zeroed)
+        bad_isin(b"US64110L1060"); // Netflix (checksum zeroed)
+        bad_isin(b"US30303M1020"); // Facebook (checksum zeroed)
+        bad_isin(b"CH0031240120"); // BMW Australia (checksum zeroed)
+        bad_isin(b"CA9861913020"); // Yorbeau Res (checksum zeroed)
 
-        assert!(!validate_isin(*b"SU5941981045")); // Microsoft (two chars transposed)
-        assert!(!validate_isin(*b"US3825P95089")); // Google (two chars transposed)
-        assert!(!validate_isin(*b"US0378313005")); // Apple (two chars transposed)
-        assert!(!validate_isin(*b"BMG491BT0188")); // Invesco (two chars transposed)
-        assert!(!validate_isin(*b"IE00B4BNM3Y4")); // Accenture (two chars transposed)
-        assert!(!validate_isin(*b"US2031351067")); // Amazon (two chars transposed)
-        assert!(!validate_isin(*b"US61410L1061")); // Netflix (two chars transposed)
-        assert!(!validate_isin(*b"US30033M1027")); // Facebook (two chars transposed)
-        assert!(!validate_isin(*b"CH0032140127")); // BMW Australia (two chars transposed)
-        assert!(!validate_isin(*b"CA9861193023")); // Yorbeau Res (two chars transposed)
-    }
-
-    #[test]
-    fn readme() {
-        // A string which doesn't validate
-        let mut s = "11111111".to_string();
-        assert!(!valid(&s));
-
-        // Let's fix that
-        s.push(checksum(s.as_bytes()) as char);
-        assert_eq!(s, "111111118");
-        assert!(valid(&s));
+        bad_isin(b"SU5941981045"); // Microsoft (two chars transposed)
+        bad_isin(b"US3825P95089"); // Google (two chars transposed)
+        bad_isin(b"US0378313005"); // Apple (two chars transposed)
+        bad_isin(b"BMG491BT0188"); // Invesco (two chars transposed)
+        bad_isin(b"IE00B4BNM3Y4"); // Accenture (two chars transposed)
+        bad_isin(b"US2031351067"); // Amazon (two chars transposed)
+        bad_isin(b"US61410L1061"); // Netflix (two chars transposed)
+        bad_isin(b"US30033M1027"); // Facebook (two chars transposed)
+        bad_isin(b"CH0032140127"); // BMW Australia (two chars transposed)
+        bad_isin(b"CA9861193023"); // Yorbeau Res (two chars transposed)
     }
 }
