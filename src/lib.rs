@@ -22,6 +22,14 @@ pub fn checksum(input: &[u8]) -> u8 {
     luhn3::checksum(input).expect("Input is not valid")
 }
 
+/// Computes the Luhn check digit for the given string.
+///
+/// The string formed by appending the check digit to the original string
+/// is guaranteed to be valid.
+pub fn safe_checksum(input: &[u8]) -> Option<u8> {
+    luhn3::checksum(input)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
