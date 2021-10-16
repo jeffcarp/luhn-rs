@@ -12,4 +12,4 @@ repository = "https://github.com/jeffcarp/luhn-rs"
 readme = "README.md"
 
 [dependencies]
-digits_iterator = "0.1"
+luhn3 = "1.0"
