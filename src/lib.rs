@@ -13,6 +13,12 @@ use digits_iterator::DigitsExtension;
 /// to make the whole string validate.
 pub fn valid(pan: &str) -> bool {
     let mut numbers = string_to_ints(pan);
+    // Reject input that contains no digits. Without this guard the Luhn
+    // sum is 0 for an empty digit vector and `0 % 10 == 0` returns `true`,
+    // causing `valid("")` and `valid("banana")` to be accepted as valid.
+    if numbers.is_empty() {
+        return false;
+    }
     numbers.reverse();
     let mut is_odd: bool = true;
     let mut odd_sum: u32 = 0;
@@ -33,9 +39,12 @@ fn string_to_ints(string: &str) -> Vec<u32> {
     let mut numbers = vec![];
     for c in string.chars() {
         let value = c.to_string().parse::<u32>();
-        match value {
-            Ok(v) => numbers.push(v),
-            Err(e) => println!("error parsing number: {:?}", e),
+        // Silently skip non-digit characters instead of writing to
+        // stdout. `valid` is a pure validation function and should not
+        // produce I/O side effects; callers can detect non-numeric input
+        // via the empty digit vector (handled in `valid`).
+        if let Ok(v) = value {
+            numbers.push(v);
         }
     }
     numbers
@@ -122,6 +131,39 @@ mod tests {
     #[test]
     fn rejects_234() {
         assert!(!valid("234"));
+    }
+
+    #[test]
+    fn rejects_empty_input() {
+        // An empty string has no check digit and cannot be a valid card number.
+        assert!(!valid(""));
+    }
+
+    #[test]
+    fn rejects_non_numeric_input() {
+        // Non-digit characters are not valid Luhn input; the library must
+        // not accept strings that contain no digits.
+        assert!(!valid("banana"));
+        assert!(!valid("abc"));
+        assert!(!valid("----"));
+        assert!(!valid("xyz"));
+        assert!(!valid("ØØØ"));
+    }
+
+    #[test]
+    fn accepts_known_valid_numbers() {
+        // Controls: well-known valid Luhn numbers must still validate.
+        assert!(valid("4111111111111111"));
+        assert!(valid("49927398716"));
+        assert!(valid("4012888888881881"));
+        assert!(valid("79927398713"));
+    }
+
+    #[test]
+    fn rejects_known_invalid_numbers() {
+        // Controls: known invalid numbers must still be rejected.
+        assert!(!valid("234"));
+        assert!(!valid("79927398710"));
     }
 
     fn validate_isin(xs: [u8; 12]) -> bool {
