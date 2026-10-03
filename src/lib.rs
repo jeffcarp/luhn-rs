@@ -12,42 +12,34 @@ use digits_iterator::DigitsExtension;
 /// Typically such strings end in a check digit which is chosen in order
 /// to make the whole string validate.
 pub fn valid(pan: &str) -> bool {
-    let mut numbers = string_to_ints(pan);
+    // Walk the digits right-to-left without collecting them.
+    let mut numbers = digits(pan).rev().peekable();
     // Reject input that contains no digits. Without this guard the Luhn
-    // sum is 0 for an empty digit vector and `0 % 10 == 0` returns `true`,
+    // sum is 0 when there are no digits and `0 % 10 == 0` returns `true`,
     // causing `valid("")` and `valid("banana")` to be accepted as valid.
-    if numbers.is_empty() {
+    if numbers.peek().is_none() {
         return false;
     }
-    numbers.reverse();
     let mut is_odd: bool = true;
-    let mut odd_sum: u32 = 0;
-    let mut even_sum: u32 = 0;
+    let mut sum: u32 = 0;
     for digit in numbers {
-        if is_odd {
-            odd_sum += digit;
+        let value = if is_odd {
+            digit
         } else {
-            even_sum += digit / 5 + (2 * digit) % 10;
-        }
+            digit / 5 + (2 * digit) % 10
+        };
+        // Reduce as we go so arbitrarily long input can't overflow.
+        sum = (sum + value) % 10;
         is_odd = !is_odd
     }
 
-    (odd_sum + even_sum) % 10 == 0
+    sum == 0
 }
 
-fn string_to_ints(string: &str) -> Vec<u32> {
-    let mut numbers = vec![];
-    for c in string.chars() {
-        let value = c.to_string().parse::<u32>();
-        // Silently skip non-digit characters instead of writing to
-        // stdout. `valid` is a pure validation function and should not
-        // produce I/O side effects; callers can detect non-numeric input
-        // via the empty digit vector (handled in `valid`).
-        if let Ok(v) = value {
-            numbers.push(v);
-        }
-    }
-    numbers
+/// Yields the decimal digits of `string`, silently skipping any other
+/// characters (e.g. the spaces or dashes in a formatted card number).
+fn digits(string: &str) -> impl DoubleEndedIterator<Item = u32> + '_ {
+    string.chars().filter_map(|c| c.to_digit(10))
 }
 
 /// Computes the Luhn check digit for the given string.
@@ -164,6 +156,29 @@ mod tests {
         // Controls: known invalid numbers must still be rejected.
         assert!(!valid("234"));
         assert!(!valid("79927398710"));
+    }
+
+    #[test]
+    fn digits_extracts_digits() {
+        let collect = |s| digits(s).collect::<Vec<u32>>();
+        assert_eq!(collect("12345"), vec![1, 2, 3, 4, 5]);
+        assert_eq!(collect("1a2b3c"), vec![1, 2, 3]);
+        assert_eq!(
+            collect("4111-1111 1111"),
+            vec![4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        );
+        assert_eq!(collect("banana"), Vec::<u32>::new());
+        assert_eq!(collect(""), Vec::<u32>::new());
+        // Only ASCII 0-9 count; other Unicode numerals are skipped,
+        // matching the previous `parse::<u32>()` behavior.
+        assert_eq!(collect("１٣"), Vec::<u32>::new());
+    }
+
+    #[test]
+    fn accepts_formatted_numbers() {
+        assert!(valid("4111 1111 1111 1111"));
+        assert!(valid("4111-1111-1111-1111"));
+        assert!(!valid("4111 1111 1111 1112"));
     }
 
     fn validate_isin(xs: [u8; 12]) -> bool {
