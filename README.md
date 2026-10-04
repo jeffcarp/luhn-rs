@@ -11,7 +11,7 @@ Add `luhn` under `[dependencies]` in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-luhn = "1.0.1"
+luhn = "1.0.2"
 ```
 
 Use the validator!
