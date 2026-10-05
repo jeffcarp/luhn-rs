@@ -1,7 +1,7 @@
 [package]
 name = "luhn"
 version = "1.0.2"
-description = "A Luhn validation library"
+description = "A Luhn validation and checksum library"
 authors = [
   "Jeff Carpenter <gcarpenterv@gmail.com>",
   "Alex Sayers <alex@asayers.com>",
@@ -9,6 +9,9 @@ authors = [
 license = "MIT"
 edition = "2018"
 repository = "https://github.com/jeffcarp/luhn-rs"
+documentation = "https://docs.rs/luhn"
 readme = "README.md"
+keywords = ["luhn", "checksum", "credit-card", "validation", "isin"]
+categories = ["algorithms", "cryptography"]
 
 
