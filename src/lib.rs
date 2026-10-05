@@ -5,8 +5,6 @@ card numbers, ISIN codes, etc.).  More information is available on
 [wikipedia](https://en.wikipedia.org/wiki/Luhn_algorithm).
 */
 
-use digits_iterator::DigitsExtension;
-
 /// Validates the given string using the Luhn algorithm.
 ///
 /// Typically such strings end in a check digit which is chosen in order
@@ -42,6 +40,16 @@ fn digits(string: &str) -> impl DoubleEndedIterator<Item = u32> + '_ {
     string.chars().filter_map(|c| c.to_digit(10))
 }
 
+/// Splits a number in 0..=99 into its decimal digits (e.g. 25 => [2, 5], 4 => [4]).
+fn u8_to_digits(n: u8) -> impl Iterator<Item = u8> {
+    let (tens, units) = (n / 10, n % 10);
+    if tens > 0 {
+        Some(tens).into_iter().chain(Some(units))
+    } else {
+        None.into_iter().chain(Some(units))
+    }
+}
+
 /// Computes the Luhn check digit for the given string.
 ///
 /// The string formed by appending the check digit to the original string
@@ -70,7 +78,7 @@ pub fn checksum(input: &[u8]) -> u8 {
             .iter()
             .copied()
             .map(encode_char)
-            .flat_map(DigitsExtension::digits),
+            .flat_map(u8_to_digits),
     );
 
     // The even-indexed digits, as numbered from the back, are added digit-wise.
@@ -80,7 +88,7 @@ pub fn checksum(input: &[u8]) -> u8 {
         .skip(1)
         .step_by(2)
         .copied()
-        .flat_map(DigitsExtension::digits)
+        .flat_map(u8_to_digits)
         .sum::<u8>();
 
     // The odd-indexed digits, as numbered from the back, are doubled first.
@@ -89,7 +97,7 @@ pub fn checksum(input: &[u8]) -> u8 {
         .rev()
         .step_by(2)
         .map(|&x| x * 2)
-        .flat_map(DigitsExtension::digits)
+        .flat_map(u8_to_digits)
         .sum::<u8>();
 
     let checksum = checksum_even + checksum_odd;
@@ -172,6 +180,16 @@ mod tests {
         // Only ASCII 0-9 count; other Unicode numerals are skipped,
         // matching the previous `parse::<u32>()` behavior.
         assert_eq!(collect("１٣"), Vec::<u32>::new());
+    }
+
+    #[test]
+    fn u8_to_digits_splits_correctly() {
+        let collect = |n| u8_to_digits(n).collect::<Vec<u8>>();
+        assert_eq!(collect(0), vec![0]);
+        assert_eq!(collect(7), vec![7]);
+        assert_eq!(collect(10), vec![1, 0]);
+        assert_eq!(collect(25), vec![2, 5]);
+        assert_eq!(collect(99), vec![9, 9]);
     }
 
     #[test]
