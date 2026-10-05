@@ -1,7 +1,9 @@
 # luhn-rs
 
 <a href="https://crates.io/crates/luhn"><img src="https://img.shields.io/crates/v/luhn.svg" /></a>
+<a href="https://docs.rs/luhn"><img src="https://docs.rs/luhn/badge.svg" /></a>
 <a href="https://github.com/jeffcarp/luhn-rs/actions/workflows/ci.yml"><img src="https://github.com/jeffcarp/luhn-rs/actions/workflows/ci.yml/badge.svg" /></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
 
 Validates strings and computes check digits using the Luhn algorithm.
 
